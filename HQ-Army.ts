@@ -1,10 +1,10 @@
-import { Entity } from "@latticexyz/recs";
+import { Entity, getComponentValueStrict } from "@latticexyz/recs";
 
 import type { PluginLayer } from "client/src/layers/Plugins/createPluginLayer";
 
 function createPlugin(pluginLayer: PluginLayer) {
   // -------------------------------------
-  // Setup Plugin API
+  // Setup Plugin API and ENUMS
   enum UnitTypes {
     Unknown = 0,
     Swordsman = 1,
@@ -51,7 +51,7 @@ function createPlugin(pluginLayer: PluginLayer) {
     GoldMine,
     GoldCache,
   }
-
+  // SETUP Pluginlayer used functions and components
   const {
     ui: {
       preact: {
@@ -61,6 +61,7 @@ function createPlugin(pluginLayer: PluginLayer) {
         hooks: { useMemo, useEffect, useState },
       },
       hooks: { useMatchStatus, useSelectedEntity, useComponentValue },
+      components: { Select, TextInput, Highlight, Sprite },
     },
     api: {
       getSelectedEntity,
@@ -80,11 +81,12 @@ function createPlugin(pluginLayer: PluginLayer) {
       getUnitType,
       getStructureType,
     },
+
     actions: { attack, move },
     hotkeyManager,
     tileHighlighter,
   } = pluginLayer;
-
+  // SETUP  pluginLayer.parentLayers.network used functions and components
   const {
     components: {
       Position,
@@ -104,7 +106,7 @@ function createPlugin(pluginLayer: PluginLayer) {
     network: { matchEntity },
     utils: { getTemplateValueStrict },
   } = pluginLayer.parentLayers.network;
-
+  // SETUP  pluginLayer.parentLayers.headless used functions and components
   const {
     components: { NextPosition, OnCooldown },
     api: {
@@ -113,14 +115,14 @@ function createPlugin(pluginLayer: PluginLayer) {
       getAttackableEntities,
     },
   } = pluginLayer.parentLayers.headless;
-
+  // SETUP   pluginLayer.parentLayers.phaser used functions and components
   const {
     scenes: {
       Main: { phaserScene },
     },
     api: { buildAt: phaserBuildAt, selectAndView },
   } = pluginLayer.parentLayers.phaser;
-
+  // SETUP  pluginLayer.parentLayers.local used functions and components
   const {
     api: { selectEntity },
   } = pluginLayer.parentLayers.local;
@@ -133,17 +135,23 @@ function createPlugin(pluginLayer: PluginLayer) {
     const position1 = getPosition(entity1);
     const position2 = getPosition(entity2);
     if (!position1 || !position2) return Infinity; // Return a large value if positions are not available
-    return Math.sqrt(Math.pow(position2.x - position1.x, 2) + Math.pow(position2.y - position1.y, 2));
+    return Math.sqrt(
+      Math.pow(position2.x - position1.x, 2) +
+        Math.pow(position2.y - position1.y, 2)
+    );
   };
 
-  // Find best target function with sorting by distance
+  // Find best target function with sorting by distance and potential health ! TODO check it !!!
   const findBestTarget = (attacker: Entity) => {
     const targets = getAllAttackableEntities(attacker);
     if (!targets || targets.length === 0) return;
 
     const closestTarget = findClosest(attacker, targets);
 
-    if (closestTarget.distance === 1 && (isArcher(attacker) || isCatapult(attacker))) {
+    if (
+      closestTarget.distance === 1 &&
+      (isArcher(attacker) || isCatapult(attacker))
+    ) {
       return; // Return undefined if attacker is an archer or catapult and the closest target is at distance 1
     }
 
@@ -153,8 +161,14 @@ function createPlugin(pluginLayer: PluginLayer) {
       const health1 = getHealth(target1) || 0;
       const health2 = getHealth(target2) || 0;
 
-      const distance1 = calculateDistance(target1, closestTarget.Entity || undefined);
-      const distance2 = calculateDistance(target2, closestTarget.Entity || undefined);
+      const distance1 = calculateDistance(
+        target1,
+        closestTarget.Entity || undefined
+      );
+      const distance2 = calculateDistance(
+        target2,
+        closestTarget.Entity || undefined
+      );
 
       // First, sort by distance
       if (distance1 !== distance2) {
@@ -180,8 +194,7 @@ function createPlugin(pluginLayer: PluginLayer) {
     return bestTarget;
   };
 
-  // Unit type checkers
-
+  // TODO ho to recieve health for units and structure?
   function getHealth(entity) {
     if (isUnit(entity)) {
       const combatData = useComponentValue(Combat, entity as Entity);
@@ -192,6 +205,7 @@ function createPlugin(pluginLayer: PluginLayer) {
     }
   }
 
+  // Unit type checkers -
   function isSoldier(entity) {
     if (getUnitType(entity) == UnitTypes.Swordsman) {
       return true;
@@ -257,9 +271,6 @@ function createPlugin(pluginLayer: PluginLayer) {
   }
   // basic check if is entity Marksma
   function isMarksman(entity) {
-    if (!HasValue(UnitType, entity)) {
-      return false;
-    }
     if (getUnitType(entity) == UnitTypes.Marksman) {
       return true;
     }
@@ -268,17 +279,14 @@ function createPlugin(pluginLayer: PluginLayer) {
 
   // basic check if is entity Marksma
   function isBrute(entity) {
-    if (!HasValue(UnitType, entity)) {
-      return false;
-    }
     if (getUnitType(entity) == UnitTypes.Brute) {
       return true;
     }
     return false;
   }
-
+  // main Fortified const
   const fortifiedUnits = new Set(); // Initialize the set to store fortified units
-
+  // function Add/Remove to fortify list
   const addFortified = () => {
     const selectedEntity = getSelectedEntity();
     if (!selectedEntity) return;
@@ -290,16 +298,14 @@ function createPlugin(pluginLayer: PluginLayer) {
     if (fortifiedUnits.has(entity)) {
       fortifiedUnits.delete(entity);
       console.log("Removed unit from fortification:", fortifiedUnits);
-      createListUnits("fortified-list", fortifiedUnits);
     } else {
       fortifiedUnits.add(entity);
       console.log("Added unit to fortification:", fortifiedUnits);
-      createListUnits("fortified-list", fortifiedUnits);
     }
   };
-
+  // main Frenzy const
   const frenzyUnits = new Set(); // Initialize the set to store frenzy units
-
+  // function Add/Remove to frenzy list
   const addFrenzy = () => {
     const selectedEntity = getSelectedEntity();
     if (!selectedEntity) return;
@@ -311,32 +317,13 @@ function createPlugin(pluginLayer: PluginLayer) {
     if (frenzyUnits.has(entity)) {
       frenzyUnits.delete(entity);
       console.log("Removed unit from frenzy:", frenzyUnits);
-      createListUnits("frenzy-list", frenzyUnits);
     } else {
       frenzyUnits.add(entity);
       console.log("Added unit to frehzy:", frenzyUnits);
-      createListUnits("frenzy-list", frenzyUnits);
     }
   };
 
-  function createListUnits(listId, items) {
-    const list = document.getElementById(listId);
-    if (!list) return;
-
-    list.innerHTML = ""; // Clear the list
-
-    items.forEach((item, index) => {
-      const listItem = document.createElement("div");
-      listItem.classList.add("list-item");
-
-      const unitName = getEntityName(item);
-      const unitType = getUnitType(item);
-      listItem.textContent = `${unitName}-${unitType}`;
-
-      list.appendChild(listItem);
-    });
-  }
-
+  // Main stack functions for Fortified
   const performFortActions1 = () => {
     performFortifiedUnitActionsATTACK();
   };
@@ -348,8 +335,7 @@ function createPlugin(pluginLayer: PluginLayer) {
         if (!entityId) {
           console.error("Fortified entity not found:", entityId);
           fortifiedUnits.delete(entityId);
-          createListUnits("fortified-list", fortifiedUnits);
-          return;
+          continue;
         }
 
         const attackableEntities = getAllAttackableEntities(entityId as Entity);
@@ -357,48 +343,59 @@ function createPlugin(pluginLayer: PluginLayer) {
         if (attackableEntities) {
           const bestTarget = findBestTarget(entityId as Entity);
           if (!bestTarget) return;
-          selectEntity(entityId as Entity);
           if (canAttack(entityId as Entity, bestTarget)) {
             attack(entityId as Entity, bestTarget);
-            return;
+            continue;
           }
         }
       }
     }
   }
-
+  // Main stack functions for Frenzy
   const performFrenzyActions1 = () => {
     performFrenzyUnitActionsATTACK();
   };
 
-  // Function to perform actions for fortified units ATTACK
+  // Function to perform actions for frenzy units ATTACK
   function performFrenzyUnitActionsATTACK() {
     if (frenzyUnits) {
       for (const entityId of frenzyUnits) {
         if (!entityId) {
           console.error("Frenzy entity not found:", entityId);
-          return;
+          continue;
         }
         const attackableEntities = getAllAttackableEntities(entityId as Entity);
 
         if (attackableEntities) {
-          debugger;
           const bestTarget = findBestTarget(entityId as Entity);
-          if (!bestTarget) return;
+          if (!bestTarget) continue;
+
+          const prevSelected = getSelectedEntity();
           selectEntity(entityId as Entity);
           if (canAttack(entityId as Entity, bestTarget)) {
-            resetSelection();
+            if (prevSelected) {
+              selectEntity(prevSelected as Entity);
+            } else {
+              resetSelection();
+            }
             attack(entityId as Entity, bestTarget);
-            return;
+            continue;
           }
 
           selectEntity(entityId as Entity);
-          const closestUnblockedPosition = canMoveToAndAttack(entityId as Entity, bestTarget);
+          const closestUnblockedPosition = canMoveToAndAttack(
+            entityId as Entity,
+            bestTarget
+          );
 
           if (closestUnblockedPosition) {
-            resetSelection();
+            if (prevSelected) {
+              selectEntity(prevSelected as Entity);
+            } else {
+              resetSelection();
+            }
             move(entityId as Entity, closestUnblockedPosition, bestTarget);
-            return;
+            continue;
           }
         }
       }
@@ -412,14 +409,16 @@ function createPlugin(pluginLayer: PluginLayer) {
 
     const bestTarget = findBestTarget(selectedEntity);
     if (!bestTarget) return;
-
     if (canAttack(selectedEntity, bestTarget)) {
       resetSelection();
       attack(selectedEntity, bestTarget);
       return;
     }
 
-    const closestUnblockedPosition = canMoveToAndAttack(selectedEntity, bestTarget);
+    const closestUnblockedPosition = canMoveToAndAttack(
+      selectedEntity,
+      bestTarget
+    );
     if (closestUnblockedPosition) {
       resetSelection();
       move(selectedEntity, closestUnblockedPosition, bestTarget);
@@ -465,10 +464,6 @@ function createPlugin(pluginLayer: PluginLayer) {
       fortifiedListHeader.textContent = "Fortified Units";
       fortifiedListContainer.appendChild(fortifiedListHeader);
 
-      const fortifiedList = document.createElement("div");
-      fortifiedList.id = "fortified-list";
-      fortifiedListContainer.appendChild(fortifiedList);
-
       // Frenzy List
       const frenzyListContainer = document.createElement("div");
       frenzyListContainer.style.display = "inline-block";
@@ -479,24 +474,22 @@ function createPlugin(pluginLayer: PluginLayer) {
       frenzyListHeader.textContent = "Frenzy Units";
       frenzyListContainer.appendChild(frenzyListHeader);
 
-      const frenzyList = document.createElement("div");
-      frenzyList.id = "frenzy-list";
-      frenzyListContainer.appendChild(frenzyList);
-
-      createListUnits("fortified-list", fortifiedUnits);
-      createListUnits("frenzy-list", frenzyUnits);
-
       function App() {
         const [showContent, setShowContent] = useState(false); // State variable to toggle visibility
         const selectedEntity = useSelectedEntity();
-        const attackableEntities = useMemo(() => getAllAttackableEntities(selectedEntity), [selectedEntity]);
+        const attackableEntities = useMemo(
+          () => getAllAttackableEntities(selectedEntity),
+          [selectedEntity]
+        );
 
         // plugin dynamicly check if selected units
         useEffect(() => {
           tileHighlighter.clearAll();
 
           if (selectedEntity) {
-            const bestTargetPosition = getPosition(findBestTarget(selectedEntity));
+            const bestTargetPosition = getPosition(
+              findBestTarget(selectedEntity)
+            );
             if (bestTargetPosition) {
               tileHighlighter.highlightTile(bestTargetPosition, 0xff0000, 0.5);
             }
@@ -507,15 +500,21 @@ function createPlugin(pluginLayer: PluginLayer) {
           };
         }, [selectedEntity]);
 
-        const [players, setPlayers] = useState<ReturnType<typeof getPlayerDetails>[]>([]);
-        const [playerGold, setPlayerGold] = useState<ReturnType<typeof getPlayerGold>[]>([]);
+        const [players, setPlayers] = useState<
+          ReturnType<typeof getPlayerDetails>[]
+        >([]);
+        const [playerGold, setPlayerGold] = useState<
+          ReturnType<typeof getPlayerGold>[]
+        >([]);
 
         const matchStatus = useMatchStatus();
 
         useEffect(() => {
           const sub = onNewTurn(() => {
             const allPlayers = getPlayersInMatch();
-            const playerDetails = allPlayers.map((player) => getPlayerDetails(player));
+            const playerDetails = allPlayers.map((player) =>
+              getPlayerDetails(player)
+            );
             setPlayers(playerDetails);
 
             const gold = allPlayers.map((player) => getPlayerGold(player));
@@ -547,32 +546,137 @@ function createPlugin(pluginLayer: PluginLayer) {
         };
 
         return html`
-          <div style=${{ maxWidth: "400px", width: "400px", maxHeight: "400px", height: "250px", overflow: "auto" }}>
-            <!-- Button for toggling visibility -->
-            <button onclick=${toggleContent}>${showContent ? "Hide" : "Show"}</button>
-            ${showContent &&
-            html`
-              <p>
-                Press <span style=${highlightStyle}>F</span> when selecting one of your units to automatically execute
-                the attack that <span style=${highlightStyle}>does the most damage</span>.
-              </p>
-              <p>
-                Press <span style=${highlightStyle}>f</span> when selecting one of your units to automatically execute
-                the fortification that <span style=${highlightStyle}>does the most damage</span>.
-              </p>
+          <div
+            style=${{
+              maxWidth: "450px",
+              width: "450px",
+              maxHeight: "300px",
+              height: "200px",
+              overflow: "auto",
+            }}
+          >
+            <div
+              style=${{
+                width: "100%",
+                maxHeight: "200px",
+                display: "flex",
+                flexWrap: "wrap",
+              }}
+            >
+              <div
+                style=${{
+                  width: "49.5%",
+                  display: "flex",
+                  flexDirection: "row",
+                  flexWrap: "wrap",
+                  borderRadius: "8px",
+                  border: "2px solid #ccc",
+                }}
+              >
+                ${Array.from(fortifiedUnits).map((unit) => {
+                  const isSelected = getSelectedEntity() === unit;
+                  return html`<div
+                    style=${{
+                      transform: "scale(0.55)",
+                      display: "flex",
+                      flexWrap: "wrap",
+                      borderBottom: "2px solid #ccc",
+                      borderRight: "2px solid #ccc",
+                      border: isSelected ? "1px solid yellow" : "none", // Add border style based on selection
+                    }}
+                    onclick=${() => selectEntity(unit as Entity)}
+                  >
+                    <${Sprite}
+                      unitType=${getUnitType(unit as Entity)}
+                      scale=${2}
+                      colorName="green"
+                    />
+                  </div>`;
+                })}
+              </div>
 
+              <div
+                style=${{
+                  width: "49.5%",
+                  display: "flex",
+                  flexDirection: "row",
+                  flexWrap: "wrap",
+                  borderRadius: "8px",
+                  border: "2px solid darkviolet",
+                }}
+              >
+                ${Array.from(frenzyUnits).map((unit) => {
+                  const isSelected = getSelectedEntity() === unit;
+                  return html`<div
+                    style=${{
+                      transform: "scale(0.55)",
+                      display: "flex",
+                      alignItems: "wrap",
+                      borderBottom: "2px solid darkviolet",
+                      borderRight: "2px solid darkviolet",
+                      border: isSelected ? "1px solid yellow" : "none", // Add border style based on selection
+                    }}
+                    onclick=${() => selectEntity(unit as Entity)}
+                  >
+                    <${Sprite}
+                      unitType=${getUnitType(unit as Entity)}
+                      scale=${2}
+                      colorName="green"
+                    />
+                  </div>`;
+                })}
+              </div>
+            </div>
+
+            <div>
               ${selectedEntity
                 ? html`
                     <p>
                       There are currently
-                      <span style=${highlightStyle}>${attackableEntities?.length ?? 0}</span> enemies in range.
+                      <span style=${highlightStyle}
+                        >${attackableEntities?.length ?? 0}</span
+                      >
+                      enemies in range.
                     </p>
                   `
                 : null}
+            </div>
 
-              <div id="listContainer-container">
-                <div id="listContainer"></div>
-              </div>
+            <!-- Button for toggling visibility -->
+            <button
+              style=${{
+                border: "2px solid black",
+                borderRadius: "8px",
+              }}
+              onclick=${toggleContent}
+            >
+              ${showContent ? "Hide info" : "Show more info"}
+            </button>
+            ${showContent &&
+            html`
+              <p>
+                Press <span style=${highlightStyle}>F</span> to add/remove units
+                to Frenzy loop for FRENZY your units to automatically execute
+                the attack that
+                <span style=${highlightStyle}>does the most damage</span>.
+              </p>
+              <p>
+                Press <span style=${highlightStyle}>f</span> when selecting one
+                of your units to automatically execute the fortification that
+                <span style=${highlightStyle}>does the most damage</span>.
+              </p>
+
+              <p>
+                Press <span style=${highlightStyle}>R</span> when selecting one
+                of your units frenzy attack with move that
+                <span style=${highlightStyle}>does the most damage</span>.
+              </p>
+
+              <p>
+                Press <span style=${highlightStyle}>r</span> when selecting one
+                of your units frenzy attack static that
+                <span style=${highlightStyle}>does the most damage</span>.
+              </p>
             `}
           </div>
         `;
