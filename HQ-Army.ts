@@ -1,4 +1,4 @@
-import { Entity, HasValue } from "@latticexyz/recs";
+import { Entity } from "@latticexyz/recs";
 
 import type { PluginLayer } from "client/src/layers/Plugins/createPluginLayer";
 
@@ -121,6 +121,10 @@ function createPlugin(pluginLayer: PluginLayer) {
     api: { buildAt: phaserBuildAt, selectAndView },
   } = pluginLayer.parentLayers.phaser;
 
+  const {
+    api: { selectEntity },
+  } = pluginLayer.parentLayers.local;
+
   // ----------------------------------------------
   // Start Plugin function
 
@@ -189,9 +193,6 @@ function createPlugin(pluginLayer: PluginLayer) {
   }
 
   function isSoldier(entity) {
-    if (!HasValue(UnitType, entity)) {
-      return false;
-    }
     if (getUnitType(entity) == UnitTypes.Swordsman) {
       return true;
     }
@@ -199,9 +200,6 @@ function createPlugin(pluginLayer: PluginLayer) {
   }
   // basic check if is entity Pikeman
   function isPikeman(entity) {
-    if (!HasValue(UnitType, entity)) {
-      return false;
-    }
     if (getUnitType(entity) == UnitTypes.Pikeman) {
       return true;
     }
@@ -209,9 +207,6 @@ function createPlugin(pluginLayer: PluginLayer) {
   }
   // basic check if is entity Halberdier
   function isHalberdier(entity) {
-    if (!HasValue(UnitType, entity)) {
-      return false;
-    }
     if (getUnitType(entity) == UnitTypes.Halberdier) {
       return true;
     }
@@ -219,9 +214,6 @@ function createPlugin(pluginLayer: PluginLayer) {
   }
   // basic check if is entity Pillager
   function isPillager(entity) {
-    if (!HasValue(UnitType, entity)) {
-      return false;
-    }
     if (getUnitType(entity) == UnitTypes.Pillager) {
       return true;
     }
@@ -229,9 +221,6 @@ function createPlugin(pluginLayer: PluginLayer) {
   }
   // basic check if is entity Kingth
   function isKnight(entity) {
-    if (!HasValue(UnitType, entity)) {
-      return false;
-    }
     if (getUnitType(entity) == UnitTypes.Knight) {
       return true;
     }
@@ -239,9 +228,6 @@ function createPlugin(pluginLayer: PluginLayer) {
   }
   // basic check if is entity Dragon
   function isDragoon(entity) {
-    if (!HasValue(UnitType, entity)) {
-      return false;
-    }
     if (getUnitType(entity) == UnitTypes.Dragoon) {
       return true;
     }
@@ -249,9 +235,6 @@ function createPlugin(pluginLayer: PluginLayer) {
   }
   // basic check if is entity Archer
   function isArcher(entity) {
-    if (!HasValue(UnitType, entity)) {
-      return false;
-    }
     if (getUnitType(entity) == UnitTypes.Archer) {
       return true;
     }
@@ -267,9 +250,6 @@ function createPlugin(pluginLayer: PluginLayer) {
   }
   // basic check if is entity Catapult
   function isCatapult(entity) {
-    if (!HasValue(UnitType, entity)) {
-      return false;
-    }
     if (getUnitType(entity) == UnitTypes.Catapult) {
       return true;
     }
@@ -377,7 +357,7 @@ function createPlugin(pluginLayer: PluginLayer) {
         if (attackableEntities) {
           const bestTarget = findBestTarget(entityId as Entity);
           if (!bestTarget) return;
-
+          selectEntity(entityId as Entity);
           if (canAttack(entityId as Entity, bestTarget)) {
             attack(entityId as Entity, bestTarget);
             return;
@@ -400,19 +380,23 @@ function createPlugin(pluginLayer: PluginLayer) {
           return;
         }
         const attackableEntities = getAllAttackableEntities(entityId as Entity);
-        debugger;
+
         if (attackableEntities) {
+          debugger;
           const bestTarget = findBestTarget(entityId as Entity);
           if (!bestTarget) return;
-
+          selectEntity(entityId as Entity);
           if (canAttack(entityId as Entity, bestTarget)) {
+            resetSelection();
             attack(entityId as Entity, bestTarget);
             return;
           }
 
-          const closestUnblockedPosition = canMoveToAndAttack(entityId, bestTarget);
+          selectEntity(entityId as Entity);
+          const closestUnblockedPosition = canMoveToAndAttack(entityId as Entity, bestTarget);
 
           if (closestUnblockedPosition) {
+            resetSelection();
             move(entityId as Entity, closestUnblockedPosition, bestTarget);
             return;
           }
@@ -420,8 +404,8 @@ function createPlugin(pluginLayer: PluginLayer) {
       }
     }
   }
-
-  const frenzy = () => {
+  // original frenzy
+  const frenzyMove = () => {
     const selectedEntity = getSelectedEntity();
     if (!selectedEntity) return;
     if (!isOwnedByCurrentPlayer(selectedEntity)) return;
@@ -443,9 +427,26 @@ function createPlugin(pluginLayer: PluginLayer) {
     }
   };
 
+  // Frenzy attack without move any
+  const frenzyStatic = () => {
+    const selectedEntity = getSelectedEntity();
+    if (!selectedEntity) return;
+    if (!isOwnedByCurrentPlayer(selectedEntity)) return;
+
+    const bestTarget = findBestTarget(selectedEntity);
+    if (!bestTarget) return;
+
+    if (canAttack(selectedEntity, bestTarget)) {
+      resetSelection();
+      attack(selectedEntity, bestTarget);
+      return;
+    }
+  };
+
   return {
     mount: (container: HTMLDivElement) => {
-      hotkeyManager.addHotkey("r", frenzy);
+      hotkeyManager.addHotkey("R", frenzyMove);
+      hotkeyManager.addHotkey("r", frenzyStatic);
       hotkeyManager.addHotkey("F", addFrenzy);
       hotkeyManager.addHotkey("f", addFortified);
 
@@ -580,6 +581,7 @@ function createPlugin(pluginLayer: PluginLayer) {
       render(h(App, {}), container);
     },
     unmount: () => {
+      hotkeyManager.removeHotkey("R");
       hotkeyManager.removeHotkey("r");
       hotkeyManager.removeHotkey("f");
       hotkeyManager.removeHotkey("F");
