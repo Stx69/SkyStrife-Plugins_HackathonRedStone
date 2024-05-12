@@ -4,7 +4,7 @@ Target of plugin :
 
 1. Learn basic interaction with MUD Sky Strife plugins layers - stable version
    
-2. Build hotkeys HeadWuearter Army helper:
+2. Build hotkeys HeadQuarter Army helper:
 
 Design  - Core -
 
