@@ -1,5 +1,4 @@
 import type { PluginLayer } from "client/src/layers/Plugins/createPluginLayer";
-
 import type { Entity } from "@latticexyz/recs";
 
 function createPlugin(pluginLayer: PluginLayer) {
@@ -19,7 +18,7 @@ function createPlugin(pluginLayer: PluginLayer) {
     api: { getSelectedEntity, getUnitType },
     hotkeyManager,
   } = pluginLayer;
-  // SETUP  pluginLayer.parentLayers.local used functions and components
+  // SETUP pluginLayer.parentLayers.local used functions and components
   const {
     api: { selectEntity },
   } = pluginLayer.parentLayers.local;
@@ -68,24 +67,37 @@ function createPlugin(pluginLayer: PluginLayer) {
       <button
         class="hotkey-button"
         style=${{
-          width: "35px",
-          height: "35px",
+          width: "40px",
+          height: "40px",
           margin: "5px",
           border: "1px solid black",
           boxShadow: clicked ? "0 0 5px 2px rgba(0, 0, 0, 0.5)" : "none", // Add shadow effect when clicked
           backgroundColor: "white",
+          display: "flex",
           justifyContent: "center",
           alignItems: "center",
+          padding: "0",
         }}
         onclick=${handleClick}
       >
-        ${savedEntity
-          ? html`<${Sprite}
-              unitType=${getUnitType(savedEntity)}
-              scale=${1}
-              colorName="green"
-            />`
-          : symbol}
+        <div
+          style=${{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            width: "90%",
+            height: "90%",
+          }}
+        >
+          ${savedEntity
+            ? html`<${Sprite}
+                unitType=${getUnitType(savedEntity)}
+                scale=${1}
+                colorName="green"
+                style=${{ maxWidth: "100%", maxHeight: "100%" }}
+              />`
+            : symbol}
+        </div>
       </button>
     `;
   };
@@ -109,7 +121,13 @@ function createPlugin(pluginLayer: PluginLayer) {
     }
 
     return html`
-      <div class="button-row">
+      <div
+        class="button-row"
+        style=${{
+          display: "flex",
+          justifyContent: "space-around",
+        }}
+      >
         ${buttons.map((button) => html`<${HotkeyButton} ...${button} />`)}
       </div>
     `;
